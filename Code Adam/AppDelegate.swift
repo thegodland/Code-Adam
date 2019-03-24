@@ -7,16 +7,93 @@
 //
 
 import UIKit
+import Firebase
+import UserNotifications
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     var window: UIWindow?
 
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        FirebaseApp.configure()
+        
+        if #available(iOS 10.0, *) {
+            // For iOS 10 display notification (sent via APNS)
+            UNUserNotificationCenter.current().delegate = self
+            
+            let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
+            UNUserNotificationCenter.current().requestAuthorization(
+                options: authOptions,
+                completionHandler: {_, _ in })
+        } else {
+            let settings: UIUserNotificationSettings =
+                UIUserNotificationSettings(types: [.alert, .badge, .sound], categories: nil)
+            application.registerUserNotificationSettings(settings)
+        }
+        
+        application.registerForRemoteNotifications()
+        
+        InstanceID.instanceID().instanceID(handler: { (result, error) in
+            if error != nil{
+                print("there is an error \(error!)")
+            }
+            if let result = result{
+                print("the token is \(result.token)")
+            }
+     
+        })
         return true
+    }
+    
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        
+        let info = extractUserInfo(userInfo: userInfo)
+        print("+++++++++++++++++++++++++")
+        print(info.title)
+        print(info.body)
+        guard let hat = userInfo["hat"] as? String else {return}
+        guard let hatcolor = userInfo["hatcolor"] as? String else {return}
+        guard let age = userInfo["age"] as? String else {return}
+        guard let gender = userInfo["gender"] as? String else {return}
+        guard let shoes = userInfo["shoes"] as? String else {return}
+        guard let shoescolor = userInfo["shoescolor"] as? String else {return}
+        guard let up = userInfo["up"] as? String else {return}
+        guard let upcolor = userInfo["upcolor"] as? String else {return}
+        guard let low = userInfo["low"] as? String else {return}
+        guard let lowcolor = userInfo["lowcolor"] as? String else {return}
+
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        let controller = storyboard.instantiateViewController(withIdentifier: "trackViewController") as! TrackViewController
+        controller.body = up
+        controller.bodyColor = upcolor
+        controller.head = hat
+        controller.headColor = hatcolor
+        controller.age = age
+        controller.leg = low
+        controller.legColor = lowcolor
+        controller.shoes = shoes
+        controller.shoesColor = shoescolor
+        controller.gender = gender
+        let root = UIApplication.shared.keyWindow!.rootViewController as! ViewController
+        root.present(controller, animated: true, completion: nil)
+    }
+    
+//    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+//        print("this is in app mess")
+//    }
+    
+    
+    func extractUserInfo(userInfo: [AnyHashable : Any]) -> (title: String, body: String) {
+        var info = (title: "", body: "")
+        guard let aps = userInfo["aps"] as? [String: Any] else { return info }
+        guard let alert = aps["alert"] as? [String: Any] else { return info }
+        let title = alert["title"] as? String ?? ""
+        let body = alert["body"] as? String ?? ""
+        info = (title: title, body: body)
+        return info
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
